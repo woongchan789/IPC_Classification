@@ -6,13 +6,31 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 import warnings
 warnings.filterwarnings('ignore')
 
-def compute_metrics(logits, labels):
-    # 로짓과 레이블을 기반으로 메트릭을 계산합니다.
-    preds = torch.sigmoid(logits).round()  # 확률을 계산하고 0.5 기준으로 반올림하여 예측을 결정합니다.
-    accuracy = accuracy_score(labels.detach().cpu().numpy(), preds.detach().cpu().numpy())
-    precision, recall, f1, _ = precision_recall_fscore_support(labels.detach().cpu().numpy(), preds.detach().cpu().numpy(), average='weighted')
-    # cm = confusion_matrix(labels.detach().cpu().numpy().argmax(axis=1), preds.detach().cpu().numpy().argmax(axis=1))
-    return accuracy, precision, recall, f1
+import numpy as np
+
+def accuracy_multilabel(y_true, y_pred):
+    """Compute the accuracy for multi-label classification."""
+    correct_predictions = np.equal(y_true, y_pred).all(axis=1)
+    accuracy = correct_predictions.mean()
+    return accuracy
+
+def precision_recall_f1_multilabel(y_true, y_pred):
+    """Compute precision, recall, and F1-score for multi-label classification."""
+    true_positives = np.logical_and(y_pred == 1, y_true == 1).sum(axis=0).astype(float)
+    predicted_positives = y_pred.sum(axis=0).astype(float)
+    actual_positives = y_true.sum(axis=0).astype(float)
+
+    precision = np.divide(true_positives, predicted_positives, out=np.zeros_like(true_positives), where=predicted_positives != 0)
+    recall = np.divide(true_positives, actual_positives, out=np.zeros_like(true_positives), where=actual_positives != 0)
+    
+    f1_score = 2 * (precision * recall) / (precision + recall + 1e-7)  # 1e-7 to avoid division by zero
+
+    # Averaging across all labels
+    precision_avg = np.mean(precision)
+    recall_avg = np.mean(recall)
+    f1_score_avg = np.mean(f1_score)
+
+    return precision_avg, recall_avg, f1_score_avg
 
 # Early Stopping 클래스 정의
 class EarlyStopping:
