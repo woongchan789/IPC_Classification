@@ -67,7 +67,6 @@ def fit(model, train_dataloader, valid_dataloader, loss_fn, epochs, optimizer, e
         model.eval()
         with torch.no_grad():
             val_total_loss = 0
-            val_section_metrics = []
             val_section_acc = []
             val_section_precison = []
             val_section_recall = []
@@ -94,17 +93,13 @@ def fit(model, train_dataloader, valid_dataloader, loss_fn, epochs, optimizer, e
             
             avg_val_total_loss = val_total_loss / len(valid_dataloader)
             avg_val_section_metrics = np.mean([val_section_acc, val_section_precison, val_section_recall, val_section_f1], axis=1)
-            
-            # 평균 메트릭을 계산합니다.
-            avg_valid_total_loss = val_total_loss / len(valid_dataloader)
-            avg_section_metrics = np.mean(val_section_metrics, axis=0)
 
             print('=====================================================================================================')
             print(f"Validation - Epoch {epoch+1}")
             print(f"Total Loss: {avg_val_total_loss}")
-            print(f"Section - Accuracy: {avg_val_section_metrics[0]}, Precision: {avg_section_metrics[1]}, Recall: {avg_section_metrics[2]}, F1: {avg_section_metrics[3]}")
+            print(f"Section - Accuracy: {avg_val_section_metrics[0]}, Precision: {avg_val_section_metrics[1]}, Recall: {avg_val_section_metrics[2]}, F1: {avg_val_section_metrics[3]}")
             print('=====================================================================================================')
-            wandb.log({'Valid Loss': avg_valid_total_loss,
+            wandb.log({'Valid Loss': avg_val_total_loss,
                     'Valid Section Accuracy': avg_val_section_metrics[0],
                     'Valid Section Precision': avg_val_section_metrics[1],
                     'Valid Section Recall': avg_val_section_metrics[2],
@@ -117,7 +112,7 @@ def fit(model, train_dataloader, valid_dataloader, loss_fn, epochs, optimizer, e
                 torch.save(optimizer.state_dict(), os.path.join('results', 'optimizer_state_dict.pth'))
 
                 state = {'best_epoch': epoch,
-                        'loss': avg_valid_total_loss,
+                        'loss': avg_val_total_loss,
                         'best_acc': avg_val_section_metrics[0],
                         'best_precision': avg_val_section_metrics[1],
                         'best_recall': avg_val_section_metrics[2],
@@ -126,7 +121,7 @@ def fit(model, train_dataloader, valid_dataloader, loss_fn, epochs, optimizer, e
                 
                 json.dump(state, open(os.path.join('results', f'best_results.json'),'w'), indent=4)
 
-            early_stopping(avg_valid_total_loss, model)
+            early_stopping(avg_val_total_loss, model)
 
             if early_stopping.early_stop:
                 print("Early stopping")
