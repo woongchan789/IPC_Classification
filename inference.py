@@ -9,7 +9,7 @@ from model import CustomClassifier
 from utils import calculate_multilabel_metrics
 from tqdm import tqdm
 
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+device = torch.device('cuda:1') if torch.cuda.is_available() else torch.device('cpu')
 
 train = pd.read_pickle('dataset/train.pkl')
 val = pd.read_pickle('dataset/valid.pkl')
@@ -19,7 +19,7 @@ data = pd.concat([train, val, test], ignore_index=True)
 
 tokenizer = AutoTokenizer.from_pretrained('klue/roberta-small')
 dataset = CustomDataset(data, tokenizer)
-dataloader = DataLoader(dataset, batch_size=64, shuffle=False)  
+dataloader = DataLoader(dataset, batch_size=128, shuffle=False)  
 
 model = CustomClassifier('klue/roberta-small', 7, device)
 model.load_state_dict(torch.load('/home/woongchan/Workspace/지재권/ipc_section_classification/results2/model_state_dict.pth'))
@@ -59,10 +59,10 @@ with torch.no_grad():
 y_preds_flat = [item for sublist in y_preds for item in sublist]
 data['section_pred'] = y_preds_flat
 data['section'] = data['section'].apply(np.array)
-data.to_pickle('dataset/result_not_including_eng.pkl')
+data.to_pickle('inference_results/result_not_including_eng.pkl')
 
-y_true = np.concatenate(test['section'].values)
-y_pred = np.concatenate(test['section_pred'].values)
+y_true = np.array(data['section'].to_list())
+y_pred = np.array(data['section_pred'].to_list())
 
 eval_dict = calculate_multilabel_metrics(y_true, y_pred)
 
@@ -83,4 +83,4 @@ def binary_to_labels(binary_list):
 data['section_labels'] = data['section'].apply(binary_to_labels)
 data['section_pred_labels'] = data['section_pred'].apply(binary_to_labels)
 
-data.to_pickle('dataset/result_including_eng.pkl')
+data.to_pickle('inference_results/result_including_eng.pkl')
