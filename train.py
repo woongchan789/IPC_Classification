@@ -1,4 +1,4 @@
-from utils import accuracy_multilabel, precision_recall_f1_multilabel, EarlyStopping
+from utils import calculate_multilabel_metrics, EarlyStopping
 import torch
 import wandb
 import numpy as np
@@ -40,15 +40,21 @@ def fit(model, train_dataloader, valid_dataloader, loss_fn, epochs, optimizer, e
                 total_loss.backward()
                 optimizer.step()
                 
+                final_outputs = (outputs['section_output'].detach().cpu().numpy() > 0.5).astype(int)
+                
+                for i in range(len(final_outputs)):
+                    if final_outputs[i].sum() == 0:
+                        final_outputs[i][np.argmax(outputs['section_output'].detach().cpu().numpy()[i])] = 1
+
                 train_total_loss += total_loss.item()
-                train_batch_acc = accuracy_multilabel(section_labels.detach().cpu().numpy(), outputs['section_output'].detach().cpu().numpy())
-                train_batch_precision, train_batch_recall, train_batch_f1 = precision_recall_f1_multilabel(section_labels.detach().cpu().numpy(), outputs['section_output'].detach().cpu().numpy())
+                eval_dict = calculate_multilabel_metrics(section_labels.detach().cpu().numpy(), final_outputs)
+                train_batch_acc, train_batch_precision, train_batch_recall, train_batch_f1 = eval_dict['accuracy'], eval_dict['precision'], eval_dict['recall'], eval_dict['f1_score']
                 train_section_acc.append(train_batch_acc)
                 train_section_precison.append(train_batch_precision)
                 train_section_recall.append(train_batch_recall)
                 train_section_f1.append(train_batch_f1)
                 
-                t.set_postfix(Acc=train_batch_acc, Prec=train_batch_precision, Rec=train_batch_recall, F1=train_batch_f1)
+                t.set_postfix(Loss=loss.item(), Acc=train_batch_acc, Prec=train_batch_precision, Rec=train_batch_recall, F1=train_batch_f1)
             
         avg_train_total_loss = train_total_loss / len(train_dataloader)
         avg_train_section_metrics = np.mean([train_section_acc, train_section_precison, train_section_recall, train_section_f1], axis=1)
@@ -80,16 +86,22 @@ def fit(model, train_dataloader, valid_dataloader, loss_fn, epochs, optimizer, e
                     outputs = model(input_ids, attention_mask)
                     loss = loss_fn(outputs['section_output'], section_labels)
                     
+                    final_outputs = (outputs['section_output'].detach().cpu().numpy() > 0.5).astype(int)
+                    
+                    for i in range(len(final_outputs)):
+                        if final_outputs[i].sum() == 0:
+                            final_outputs[i][np.argmax(outputs['section_output'].detach().cpu().numpy()[i])] = 1
+                            
                     # 각 섹션별 메트릭을 계산합니다.
                     val_total_loss += loss.item()    
-                    val_batch_acc = accuracy_multilabel(outputs['section_output'].detach().cpu().numpy(), section_labels.detach().cpu().numpy())
-                    val_batch_precision, val_batch_recall, val_batch_f1 = precision_recall_f1_multilabel(outputs['section_output'].detach().cpu().numpy(), section_labels.detach().cpu().numpy())
+                    eval_dict = calculate_multilabel_metrics(section_labels.detach().cpu().numpy(), final_outputs)
+                    val_batch_acc, val_batch_precision, val_batch_recall, val_batch_f1 = eval_dict['accuracy'], eval_dict['precision'], eval_dict['recall'], eval_dict['f1_score']
                     val_section_acc.append(val_batch_acc)
                     val_section_precison.append(val_batch_precision)
                     val_section_recall.append(val_batch_recall)
                     val_section_f1.append(val_batch_f1)
                     
-                    t.set_postfix(Acc=val_batch_acc, Prec=val_batch_precision, Rec=val_batch_recall, F1=val_batch_f1)
+                    t.set_postfix(Loss=loss.item(), Acc=val_batch_acc, Prec=val_batch_precision, Rec=val_batch_recall, F1=val_batch_f1)
             
             avg_val_total_loss = val_total_loss / len(valid_dataloader)
             avg_val_section_metrics = np.mean([val_section_acc, val_section_precison, val_section_recall, val_section_f1], axis=1)
@@ -108,8 +120,8 @@ def fit(model, train_dataloader, valid_dataloader, loss_fn, epochs, optimizer, e
             # 체크포인트 저장 및 Early Stopping 체크
             if best_acc < avg_val_section_metrics[0]:
                     # save results
-                torch.save(model.state_dict(), os.path.join('results', 'model_state_dict.pth'))
-                torch.save(optimizer.state_dict(), os.path.join('results', 'optimizer_state_dict.pth'))
+                torch.save(model.state_dict(), os.path.join('results2', 'model_state_dict.pth'))
+                torch.save(optimizer.state_dict(), os.path.join('results2', 'optimizer_state_dict.pth'))
 
                 state = {'best_epoch': epoch,
                         'loss': avg_val_total_loss,
@@ -119,7 +131,7 @@ def fit(model, train_dataloader, valid_dataloader, loss_fn, epochs, optimizer, e
                         'best_f1': avg_val_section_metrics[3]
                         }
                 
-                json.dump(state, open(os.path.join('results', f'best_results.json'),'w'), indent=4)
+                json.dump(state, open(os.path.join('results2', f'best_results.json'),'w'), indent=4)
 
             early_stopping(avg_val_total_loss, model)
 

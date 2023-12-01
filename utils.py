@@ -1,40 +1,33 @@
 import torch
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support, accuracy_score
-from sklearn import metrics
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score
 import warnings
 warnings.filterwarnings('ignore')
 
 import numpy as np
 
-def accuracy_multilabel(y_true, y_pred):
-    """Compute the accuracy for multi-label classification."""
-    correct_predictions = np.equal(y_true, y_pred).all(axis=1)
-    accuracy = correct_predictions.mean()
-    return accuracy
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-def precision_recall_f1_multilabel(y_true, y_pred):
-    """Compute precision, recall, and F1-score for multi-label classification."""
-    true_positives = np.logical_and(y_pred == 1, y_true == 1).sum(axis=0).astype(float)
-    predicted_positives = y_pred.sum(axis=0).astype(float)
-    actual_positives = y_true.sum(axis=0).astype(float)
-
-    precision = np.divide(true_positives, predicted_positives, out=np.zeros_like(true_positives), where=predicted_positives != 0)
-    recall = np.divide(true_positives, actual_positives, out=np.zeros_like(true_positives), where=actual_positives != 0)
+def calculate_multilabel_metrics(y_true, y_pred):
     
-    f1_score = 2 * (precision * recall) / (precision + recall + 1e-7)  # 1e-7 to avoid division by zero
+    accuracy = accuracy_score(y_true, y_pred)
+    precision = precision_score(y_true, y_pred, average='micro')
+    recall = recall_score(y_true, y_pred, average='micro')
+    f1 = f1_score(y_true, y_pred, average='micro')
 
-    # Averaging across all labels
-    precision_avg = np.mean(precision)
-    recall_avg = np.mean(recall)
-    f1_score_avg = np.mean(f1_score)
+    metrics_dict = {
+        'accuracy': accuracy,
+        'precision': precision,
+        'recall': recall,
+        'f1_score': f1
+    }
 
-    return precision_avg, recall_avg, f1_score_avg
+    return metrics_dict
 
 # Early Stopping 클래스 정의
 class EarlyStopping:
-    def __init__(self, patience, verbose=False, delta=0, path='checkpoint/best_results.pt'):
+    def __init__(self, patience, verbose=False, delta=0, path='checkpoint2/best_results.pt'):
         self.patience = patience
         self.verbose = verbose
         self.counter = 0
